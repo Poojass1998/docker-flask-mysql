@@ -2,31 +2,20 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_INSTANCE_IP = credentials('ec2-public-ip')
+        DOCKER_INSTANCE_IP = credentials('ec2-public-ip') // secret text
+        DOCKER_HUB_PASS = credentials('dockerhub-pass')   // secret text
     }
 
     stages {
-        stage('Clone Repository') {
-            steps {
-                dir('workspace') {
-                    withCredentials([usernamePassword(credentialsId: 'github-credentials', passwordVariable: 'GIT_PASS', usernameVariable: 'GIT_USER')]) {
-                        sh 'git clone -b master https://${GIT_USER}:${GIT_PASS}@github.com/Poojass1998/docker-flask-mysql.git'
-                    }
-                }
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                dir('workspace/docker-flask-mysql/app') {
-                    sshagent(['ec2-ssh-credentials']) {
-                        sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
-                            cd ~/docker-flask-mysql/app &&
-                            docker build -t poojadocker23/flask-app:latest .
-                        '
-                        """
-                    }
+                sshagent(['ec2-ssh-credentials']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
+                        cd ~/docker-flask-mysql/app &&
+                        docker build -t poojadocker23/flask-app:latest .
+                    '
+                    """
                 }
             }
         }
@@ -62,13 +51,13 @@ pipeline {
     post {
         success {
             emailext to: 'poojass423@gmail.com',
-                     subject: "Build Successful - Flask App",
-                     body: "Your Docker Flask App build and deployment completed successfully!"
+                     subject: "✅ Build Successful - Flask App",
+                     body: "Hi Pooja,\n\nYour Docker Flask App build and deployment completed successfully! 🎉\n\n- Jenkins"
         }
         failure {
             emailext to: 'poojass423@gmail.com',
-                     subject: "Build Failed - Flask App",
-                     body: "Something went wrong. Please check Jenkins pipeline logs."
+                     subject: "❌ Build Failed - Flask App",
+                     body: "Hi Pooja,\n\nThe build failed. Please check the Jenkins console output for more details.\n\n- Jenkins"
         }
     }
 }
