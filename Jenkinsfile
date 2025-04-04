@@ -2,54 +2,58 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "poojadocker23/flask-app:latest"
-        DOCKER_CREDENTIALS = "docker-hub-credentials"
-        GIT_CREDENTIALS = "github-credentials"
-        GIT_REPO = "https://github.com/Poojass1998/docker-flask-mysql.git"
-        GIT_BRANCH = "master"
+        DOCKER_INSTANCE_IP = credentials('ec2-public-ip')
     }
 
     stages {
-        stage("Clone Repository") {
+        stage('Clone Repository') {
             steps {
                 dir('workspace') {
-                    withCredentials([usernamePassword(credentialsId: GIT_CREDENTIALS, usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
-                        sh "git clone -b ${GIT_BRANCH} https://${GIT_USER}:${GIT_PASS}@github.com/Poojass1998/docker-flask-mysql.git"
+                    withCredentials([usernamePassword(credentialsId: 'github-credentials', passwordVariable: 'GIT_PASS', usernameVariable: 'GIT_USER')]) {
+                        sh 'git clone -b master https://${GIT_USER}:${GIT_PASS}@github.com/Poojass1998/docker-flask-mysql.git'
                     }
                 }
             }
         }
 
-         stage("Build Docker Image") {
+        stage('Build Docker Image') {
             steps {
                 dir('workspace/docker-flask-mysql/app') {
-                    sh "docker build -t ${DOCKER_IMAGE} ."
+                    sshagent(['ec2-ssh-credentials']) {
+                        sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
+                            cd ~/docker-flask-mysql/app &&
+                            docker build -t poojadocker23/flask-app:latest .
+                        '
+                        """
+                    }
                 }
             }
         }
 
-        stage("Push to Docker Hub") {
+        stage('Push to Docker Hub') {
             steps {
-                withDockerRegistry([credentialsId: DOCKER_CREDENTIALS, url: ""]) {
-                    sh "docker push ${DOCKER_IMAGE}"
+                sshagent(['ec2-ssh-credentials']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
+                        echo "$DOCKER_HUB_PASS" | docker login -u poojadocker23 --password-stdin &&
+                        docker push poojadocker23/flask-app:latest
+                    '
+                    """
                 }
             }
         }
 
-        stage("Deploy on EC2") {
+        stage('Deploy on EC2') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'ec2-public-ip', variable: 'EC2_IP'),
-                    usernamePassword(credentialsId: 'ec2-ssh-credentials', usernameVariable: 'EC2_USER', passwordVariable: 'EC2_PASS')
-                ]) {
-                    sh '''
-                    sshpass -p "${EC2_PASS}" ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} <<EOF
-                        cd ~/docker-flask-mysql
-                        docker pull ${DOCKER_IMAGE}
-                        docker-compose down
+                sshagent(['ec2-ssh-credentials']) {
+                    sh """
+                    ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
+                        cd ~/docker-flask-mysql &&
+                        docker-compose down &&
                         docker-compose up -d
-                    EOF
-                    '''
+                    '
+                    """
                 }
             }
         }
@@ -57,20 +61,14 @@ pipeline {
 
     post {
         success {
-            emailext(
-                from: 'poojass423@gmail.com',
-                to: 'poojass423@gmail.com',
-                subject: 'Build Success - Flask App',
-                body: 'The CI/CD pipeline executed successfully and the Flask app is deployed on EC2.'
-            )
+            emailext to: 'poojass423@gmail.com',
+                     subject: "Build Successful - Flask App",
+                     body: "Your Docker Flask App build and deployment completed successfully!"
         }
         failure {
-            emailext(
-                from: 'poojass423@gmail.com',
-                to: 'poojass423@gmail.com',
-                subject: 'Build Failed - Flask App',
-                body: 'The build or deployment failed. Please check Jenkins console output for details.'
-            )
+            emailext to: 'poojass423@gmail.com',
+                     subject: "Build Failed - Flask App",
+                     body: "Something went wrong. Please check Jenkins pipeline logs."
         }
     }
 }
