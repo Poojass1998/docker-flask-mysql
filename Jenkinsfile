@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    DOCKER_IMAGE = 'poojass1998/flask-docker-app'
+    DOCKER_IMAGE = 'poojadocker23/flask-docker-app'
   }
 
   stages {
@@ -14,7 +14,7 @@ pipeline {
 
     stage('Build Docker Image') {
   steps {
-    sh 'docker build -t poojass1998/flask-docker-app ./app'
+    sh 'docker build -t $DOCKER_IMAGE ./app'
   }
 }
 
