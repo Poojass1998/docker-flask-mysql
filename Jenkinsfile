@@ -32,14 +32,14 @@ pipeline {
     stage('Deploy to EC2') {
       steps {
         sshagent(['ssh-credentials']) {
-          sh '''
+          sh """
             ssh -o StrictHostKeyChecking=no ubuntu@3.110.119.150 '
-              docker pull $DOCKER_IMAGE &&
+              docker pull ${DOCKER_IMAGE} &&
               docker stop flask-app || true &&
               docker rm flask-app || true &&
-              docker run -d --name flask-app -p 5000:5000 --env-file .env $DOCKER_IMAGE
+              docker run -d --name flask-app -p 5000:5000 --env-file .env ${DOCKER_IMAGE}
             '
-          '''
+          """
         }
       }
     }
@@ -50,5 +50,10 @@ pipeline {
          subject: 'Flask Docker App Deployed ',
          body: 'Your Flask app is deployed on EC2 at http://3.110.119.150:5000'
   }
+ failure {
+      mail to: 'poojass423@gmail.com',
+           subject: '❌ Flask App Deployment Failed',
+           body: 'Please check the Jenkins console output to debug the issue.'
+    }
 }
 }
