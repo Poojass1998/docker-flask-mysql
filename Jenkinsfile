@@ -13,14 +13,14 @@ pipeline {
     }
 
     stage('Build Docker Image') {
-      steps {
-        sh 'docker build -t $DOCKER_IMAGE ./app'
-      }
-    }
+  steps {
+    sh 'docker build -t poojass1998/flask-docker-app ./app'
+  }
+}
 
     stage('Push to DockerHub') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
           sh '''
             echo "$PASS" | docker login -u "$USER" --password-stdin
             docker push $DOCKER_IMAGE
@@ -31,9 +31,9 @@ pipeline {
 
     stage('Deploy to EC2') {
       steps {
-        sshagent(['ec2-key']) {
+        sshagent(['ec2-ssh-credentials']) {
           sh '''
-            ssh -o StrictHostKeyChecking=no ubuntu@<EC2-IP> '
+            ssh -o StrictHostKeyChecking=no ubuntu@<3.110.119.150> '
               docker pull $DOCKER_IMAGE &&
               docker stop flask-app || true &&
               docker rm flask-app || true &&
@@ -44,4 +44,11 @@ pipeline {
       }
     }
   }
+  post {
+  success {
+    mail to: 'poojass423@gmail.com',
+         subject: 'Flask Docker App Deployed ',
+         body: 'Your Flask app is deployed on EC2 at http://3.110.119.150:5000'
+  }
+}
 }
