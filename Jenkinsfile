@@ -33,7 +33,7 @@ pipeline {
       steps {
         sshagent(['ssh-credentials']) {
           sh '''
-            ssh -o StrictHostKeyChecking=no ubuntu@<3.110.119.150> '
+            ssh -o StrictHostKeyChecking=no ubuntu@3.110.119.150 '
               docker pull $DOCKER_IMAGE &&
               docker stop flask-app || true &&
               docker rm flask-app || true &&
