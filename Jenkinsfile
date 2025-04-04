@@ -20,7 +20,7 @@ pipeline {
 
     stage('Push to DockerHub') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
           sh '''
             echo "$PASS" | docker login -u "$USER" --password-stdin
             docker push $DOCKER_IMAGE
@@ -31,7 +31,7 @@ pipeline {
 
     stage('Deploy to EC2') {
       steps {
-        sshagent(['ec2-ssh-credentials']) {
+        sshagent(['ssh-credentials']) {
           sh '''
             ssh -o StrictHostKeyChecking=no ubuntu@<3.110.119.150> '
               docker pull $DOCKER_IMAGE &&
