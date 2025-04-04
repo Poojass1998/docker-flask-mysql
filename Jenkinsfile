@@ -1,69 +1,47 @@
 pipeline {
-    agent any
+  agent any
 
-    environment {
-        DOCKER_INSTANCE_IP = credentials('ec2-public-ip') // Secret text (e.g., 54.xx.xx.xx)
+  environment {
+    DOCKER_IMAGE = 'poojass1998/flask-docker-app'
+  }
+
+  stages {
+    stage('Clone') {
+      steps {
+        git 'https://github.com/Poojass1998/docker-flask-mysql.git'
+      }
     }
 
-    stages {
-        stage('Build Docker Image') {
-            steps {
-                sshagent(['ec2-ssh-credentials']) {
-                    sh '''
-                    ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
-                        cd ~/docker-flask-mysql/app &&
-                        docker build -t poojadocker23/flask-app:latest .
-                    '
-                    '''
-                }
-            }
-        }
-
-        stage('Push to Docker Hub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sshagent(['ec2-ssh-credentials']) {
-                        sh '''
-                        ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
-                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin &&
-                            docker push "$DOCKER_USER"/flask-app:latest
-                        '
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Deploy on EC2') {
-            steps {
-                sshagent(['ec2-ssh-credentials']) {
-                    sh '''
-                    ssh -o StrictHostKeyChecking=no ubuntu@$DOCKER_INSTANCE_IP '
-                        cd ~/docker-flask-mysql &&
-                        docker-compose down &&
-                        docker-compose pull &&
-                        docker-compose up -d
-                    '
-                    '''
-                }
-            }
-        }
+    stage('Build Docker Image') {
+      steps {
+        sh 'docker build -t $DOCKER_IMAGE ./app'
+      }
     }
 
-    post {
-        always {
-            emailext (
-                to: 'poojass423@gmail.com',
-                subject: "Jenkins Pipeline: Build ${currentBuild.currentResult} for Job '${env.JOB_NAME}' #${env.BUILD_NUMBER}",
-                body: """Hi Pooja,
-
-The Jenkins build has completed with status: ${currentBuild.currentResult}.
-
-Check console output at: ${env.BUILD_URL}
-
-- Jenkins"""
-            )
+    stage('Push to DockerHub') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+          sh '''
+            echo "$PASS" | docker login -u "$USER" --password-stdin
+            docker push $DOCKER_IMAGE
+          '''
         }
+      }
     }
+
+    stage('Deploy to EC2') {
+      steps {
+        sshagent(['ec2-key']) {
+          sh '''
+            ssh -o StrictHostKeyChecking=no ubuntu@<EC2-IP> '
+              docker pull $DOCKER_IMAGE &&
+              docker stop flask-app || true &&
+              docker rm flask-app || true &&
+              docker run -d --name flask-app -p 5000:5000 --env-file .env $DOCKER_IMAGE
+            '
+          '''
+        }
+      }
+    }
+  }
 }
-
