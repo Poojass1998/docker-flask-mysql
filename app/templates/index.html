@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Message Board</title>
+</head>
+<body>
+    <h2>Enter a Message</h2>
+    <form method="POST">
+        <input type="text" name="message" required>
+        <button type="submit">Submit</button>
+    </form>
+    
+    <h2>Stored Messages</h2>
+    <ul>
+        {% for message in messages %}
+            <li>{{ message[1] }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+
