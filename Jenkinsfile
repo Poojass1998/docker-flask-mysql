@@ -34,10 +34,11 @@ pipeline {
         sshagent(['ssh-credentials']) {
           sh """
             ssh -o StrictHostKeyChecking=no ubuntu@3.110.119.150 '
-              docker pull ${DOCKER_IMAGE} &&
+              cd /home/ubuntu/docker-flask-mysql &&
+	      docker pull poojadocker23/flask-docker-app &&
               docker stop flask-app || true &&
               docker rm flask-app || true &&
-              docker run -d --name flask-app -p 5000:5000 --env-file .env ${DOCKER_IMAGE}
+              docker run -d --name flask-app -p 5000:5000 --env-file /home/ubuntu/docker-flask-mysql/.env poojadocker23/flask-docker-app
             '
           """
         }
